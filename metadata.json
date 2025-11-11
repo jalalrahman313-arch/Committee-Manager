@@ -1,0 +1,5 @@
+{
+  "name": "Committee Manager",
+  "description": "A secure, standalone system to manage rotating savings and contribution groups (committees) entirely without internet connectivity. All data is stored locally on your device.",
+  "requestFramePermissions": []
+}

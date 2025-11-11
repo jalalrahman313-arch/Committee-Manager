@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline Committee Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              primary: {
+                '50': '#eef2ff',
+                '100': '#e0e7ff',
+                '200': '#c7d2fe',
+                '300': '#a5b4fc',
+                '400': '#818cf8',
+                '500': '#6366f1',
+                '600': '#4f46e5',
+                '700': '#4338ca',
+                '800': '#3730a3',
+                '900': '#312e81',
+                '950': '#1e1b4b',
+              },
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+</head>
+  <body class="font-sans bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 bg-gradient-to-br from-slate-200 via-slate-50 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
