@@ -67,23 +67,50 @@ const ConfirmationModal: React.FC<{
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
-}> = ({ isOpen, onClose, onConfirm, title, message }) => {
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-6">
-        <p className="text-slate-600 dark:text-slate-300">{message}</p>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} variant="secondary">
-            Cancel
-          </Button>
-          <Button onClick={onConfirm} variant="danger">
-            Confirm Delete
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
+  message: React.ReactNode;
+  confirmationText?: string;
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmationText }) => {
+    const [inputValue, setInputValue] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setInputValue('');
+        }
+    }, [isOpen]);
+    
+    const isConfirmationRequired = !!confirmationText;
+    const isConfirmed = !isConfirmationRequired || inputValue === confirmationText;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={title}>
+            <div className="space-y-6">
+                <div className="text-slate-600 dark:text-slate-300 space-y-2">{message}</div>
+                {isConfirmationRequired && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Please type <strong className="text-slate-900 dark:text-slate-100">{confirmationText}</strong> to confirm.
+                        </label>
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            className="mt-1 block w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            aria-label={`Confirm by typing ${confirmationText}`}
+                            autoComplete="off"
+                        />
+                    </div>
+                )}
+                <div className="flex justify-end gap-2">
+                    <Button onClick={onClose} variant="secondary">
+                        Cancel
+                    </Button>
+                    <Button onClick={onConfirm} variant="danger" disabled={!isConfirmed}>
+                        Confirm Delete
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+    );
 };
 
 const Header: React.FC<{
@@ -307,7 +334,19 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
         onClose={() => setCommitteeToDelete(null)}
         onConfirm={confirmDeleteCommittee}
         title="Confirm Deletion"
-        message={committeeToDelete ? `Are you sure you want to delete the committee "${committeeToDelete.name}" and all its data? This action cannot be undone.` : ''}
+        message={
+            committeeToDelete ? (
+              <>
+                <p>
+                  Are you sure you want to delete the committee "{committeeToDelete.name}"?
+                </p>
+                <p className="font-semibold text-red-600 dark:text-red-400">
+                  This will permanently delete the committee and all of its associated members, payments, and draws. This action cannot be undone.
+                </p>
+              </>
+            ) : null
+        }
+        confirmationText={committeeToDelete?.name}
       />
     </div>
   );
