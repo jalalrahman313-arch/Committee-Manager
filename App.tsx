@@ -62,6 +62,30 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; chi
   );
 };
 
+const ConfirmationModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+}> = ({ isOpen, onClose, onConfirm, title, message }) => {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="space-y-6">
+        <p className="text-slate-600 dark:text-slate-300">{message}</p>
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose} variant="secondary">
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} variant="danger">
+            Confirm Delete
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const Header: React.FC<{
   title: string;
   onBack?: () => void;
@@ -161,26 +185,36 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [pairs, setPairs] = useState<Pair[]>([]);
+  const [draws, setDraws] = useState<Draw[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [committeeToEdit, setCommitteeToEdit] = useState<Committee | null>(null);
+  const [committeeToDelete, setCommitteeToDelete] = useState<Committee | null>(null);
 
   const fetchData = useCallback(async () => {
     const committeesData = await dbService.getCommittees();
     const allMembers = await dbService.getMembers();
     const allPairs = await dbService.getPairs();
+    const allDraws = await dbService.getDraws();
     setCommittees(committeesData);
     setMembers(allMembers);
     setPairs(allPairs);
+    setDraws(allDraws);
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleDeleteCommittee = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this committee and all its data? This action cannot be undone.')) {
-        await dbService.deleteCommittee(id);
-        fetchData();
+  const confirmDeleteCommittee = async () => {
+    if (!committeeToDelete || !committeeToDelete.id) return;
+    try {
+      await dbService.deleteCommittee(committeeToDelete.id);
+      fetchData();
+      setCommitteeToDelete(null); // Close modal on success
+    } catch (error) {
+      console.error("Failed to delete committee:", error);
+      alert("An error occurred while deleting the committee.");
+      setCommitteeToDelete(null);
     }
   };
   
@@ -194,7 +228,7 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
     setIsModalOpen(true);
   };
   
-  const closeModal = () => {
+  const closeFormModal = () => {
       setIsModalOpen(false);
       setCommitteeToEdit(null);
   };
@@ -225,6 +259,8 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
               const committeePairsCount = pairs.filter(p => p.committeeId === c.id).length;
               const duration = committeeFullMembersCount + committeePairsCount;
               const drawAmount = c.contribution * duration;
+              const committeeDraws = draws.filter(d => d.committeeId === c.id);
+              const progress = duration > 0 ? (committeeDraws.length / duration) * 100 : 0;
 
               return (
                 <div key={c.id} className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-t-4 border-primary-500">
@@ -236,12 +272,24 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
                       <div className="flex items-center gap-3"><CalendarIcon className="w-5 h-5 text-slate-400" /> <span>Duration: <span className="font-semibold">{duration} months</span></span></div>
                       <div className="flex items-center gap-3"><UsersIcon className="w-5 h-5 text-slate-400" /> <span>Shares: <span className="font-semibold">{c.allowHalfShare ? 'Full & Half' : 'Full Only'}</span></span></div>
                     </div>
+                     <div className="mt-6">
+                        <div className="flex justify-between items-center text-sm mb-1 text-slate-600 dark:text-slate-400">
+                            <span className="font-medium">Progress</span>
+                            <span className="font-semibold">{committeeDraws.length} / {duration}</span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2 overflow-hidden">
+                            <div 
+                                className="bg-primary-500 h-2 rounded-full transition-all duration-500 ease-out" 
+                                style={{ width: `${progress}%` }}
+                            ></div>
+                        </div>
+                    </div>
                   </div>
                    <div className="p-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 rounded-b-md">
                         <button onClick={(e) => { e.stopPropagation(); openEditModal(c); }} className="text-slate-500 hover:text-primary-500 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
                             <EditIcon className="w-5 h-5" />
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); c.id && handleDeleteCommittee(c.id); }} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); setCommitteeToDelete(c); }} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
                             <TrashIcon className="w-5 h-5" />
                         </button>
                     </div>
@@ -251,9 +299,16 @@ const Dashboard: React.FC<{ onSelectCommittee: (id: number) => void; onShowBacku
           </div>
         )}
       </main>
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={committeeToEdit ? "Edit Committee" : "Create New Committee"}>
-        <CommitteeForm onClose={closeModal} onSave={fetchData} committeeToEdit={committeeToEdit}/>
+      <Modal isOpen={isModalOpen} onClose={closeFormModal} title={committeeToEdit ? "Edit Committee" : "Create New Committee"}>
+        <CommitteeForm onClose={closeFormModal} onSave={fetchData} committeeToEdit={committeeToEdit}/>
       </Modal>
+      <ConfirmationModal
+        isOpen={!!committeeToDelete}
+        onClose={() => setCommitteeToDelete(null)}
+        onConfirm={confirmDeleteCommittee}
+        title="Confirm Deletion"
+        message={committeeToDelete ? `Are you sure you want to delete the committee "${committeeToDelete.name}" and all its data? This action cannot be undone.` : ''}
+      />
     </div>
   );
 };
@@ -771,6 +826,8 @@ const CommitteeDetail: React.FC<{ committeeId: number; onBack: () => void }> = (
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
     const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
     const [pairToEdit, setPairToEdit] = useState<Pair | null>(null);
+    const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+    const [pairToDelete, setPairToDelete] = useState<Pair | null>(null);
     const [activeTab, setActiveTab] = useState('members');
 
     const fetchData = useCallback(async () => {
@@ -800,6 +857,33 @@ const CommitteeDetail: React.FC<{ committeeId: number; onBack: () => void }> = (
         return <div className="p-6">Loading committee details...</div>;
     }
 
+    const confirmDeleteMember = async () => {
+      if (!memberToDelete || !memberToDelete.id) return;
+      try {
+        await dbService.deleteMember(memberToDelete.id);
+        fetchData();
+        setMemberToDelete(null);
+      } catch (error: any) {
+        console.error("Failed to delete member:", error);
+        alert(`Error: ${error.message}`);
+        setMemberToDelete(null);
+      }
+    };
+    
+    const confirmDeletePair = async () => {
+      if (!pairToDelete || !pairToDelete.id) return;
+      try {
+        await dbService.deletePair(pairToDelete.id);
+        fetchData();
+        setPairToDelete(null);
+      } catch (error: any) {
+        console.error("Failed to delete pair:", error);
+        alert(`Error: ${error.message || 'Failed to delete pair.'}`);
+        setPairToDelete(null);
+      }
+    };
+
+    const individualMembers = members.filter(m => m.shareType === 'Full' || !m.pairId);
     const unpairedHalfMember = members.find(m => m.shareType === 'Half' && !m.pairId);
     
     const TabButton: React.FC<{tabName: string; label: string}> = ({tabName, label}) => (
@@ -837,12 +921,22 @@ const CommitteeDetail: React.FC<{ committeeId: number; onBack: () => void }> = (
                                 </div>
                             )}
                             <div className="space-y-3">
-                                {members.filter(m => m.shareType === 'Full').map(m => (
+                                {individualMembers.map(m => (
                                     <div key={m.id} className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700/50 rounded-md">
-                                        <div><span className="font-semibold">{m.name}</span> <span className="text-xs bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">Full Share</span></div>
-                                        <button onClick={() => setMemberToEdit(m)} className="text-slate-500 hover:text-primary-500 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                                            <EditIcon className="w-4 h-4" />
-                                        </button>
+                                        <div>
+                                            <span className="font-semibold">{m.name}</span>
+                                            <span className={`text-xs ml-2 px-2 py-1 rounded-full ${m.shareType === 'Full' ? 'bg-slate-200 dark:bg-slate-600' : 'bg-blue-200 dark:bg-blue-900/60'}`}>
+                                                {m.shareType} Share
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <button onClick={() => setMemberToEdit(m)} className="text-slate-500 hover:text-primary-500 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                                              <EditIcon className="w-4 h-4" />
+                                          </button>
+                                          <button onClick={() => setMemberToDelete(m)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
+                                            <TrashIcon className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                     </div>
                                 ))}
                                  {pairs.map(p => {
@@ -850,10 +944,18 @@ const CommitteeDetail: React.FC<{ committeeId: number; onBack: () => void }> = (
                                     const m2 = members.find(m => m.id === p.member2Id);
                                     return (
                                         <div key={p.id} className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700/50 rounded-md">
-                                            <div><span className="font-semibold">{m1?.name} & {m2?.name}</span> <span className="text-xs bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">Half Share Pair</span></div>
-                                            <button onClick={() => setPairToEdit(p)} className="text-slate-500 hover:text-primary-500 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                                                <EditIcon className="w-4 h-4" />
-                                            </button>
+                                            <div>
+                                              <span className="font-semibold">{m1?.name} & {m2?.name}</span>
+                                              <span className="text-xs bg-green-200 dark:bg-green-900/60 ml-2 px-2 py-1 rounded-full">Paired</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <button onClick={() => setPairToEdit(p)} className="text-slate-500 hover:text-primary-500 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                                                  <EditIcon className="w-4 h-4" />
+                                              </button>
+                                              <button onClick={() => setPairToDelete(p)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
+                                                <TrashIcon className="w-4 h-4" />
+                                              </button>
+                                            </div>
                                         </div>
                                     )
                                  })}
@@ -875,6 +977,20 @@ const CommitteeDetail: React.FC<{ committeeId: number; onBack: () => void }> = (
             <Modal isOpen={!!pairToEdit} onClose={() => setPairToEdit(null)} title={`Edit Pair`}>
                 {pairToEdit && <PairEditForm pair={pairToEdit} members={members} onClose={() => setPairToEdit(null)} onSave={fetchData} />}
             </Modal>
+            <ConfirmationModal
+                isOpen={!!memberToDelete}
+                onClose={() => setMemberToDelete(null)}
+                onConfirm={confirmDeleteMember}
+                title="Confirm Member Deletion"
+                message={memberToDelete ? `Are you sure you want to delete ${memberToDelete.name}? This cannot be undone.` : ''}
+            />
+            <ConfirmationModal
+                isOpen={!!pairToDelete}
+                onClose={() => setPairToDelete(null)}
+                onConfirm={confirmDeletePair}
+                title="Confirm Pair Deletion"
+                message={pairToDelete ? `Are you sure you want to delete the pair "${pairToDelete.name}"? This will also delete both members. This cannot be undone.` : ''}
+            />
         </div>
     );
 };
